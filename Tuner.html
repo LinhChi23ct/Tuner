@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bug Tuner</title>
+    <style>
+        html, body { margin:0; height:100%; background:#14060d; overflow:hidden; }
+        canvas { display:block; width:100%; height:100%; }
+    </style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<script>
+    // ====== CONFIG ======
+    const NAME = "Hoàng Tôn";          //
+    const HEART_COLOR = "#ff4d8d";  //
+    const TEXT_COLOR = "#ffffff";   //
+    const BEAT_SPEED = 2.7;         //
+
+    const BOW_PATTERN = false;       //
+    const BOW_FLOAT = true;         //
+    const BOW_COUNT = 20;           //
+
+    const MINI_HEARTS = 20;          //
+    const MINI_HEART_COLORS = ["#ff7eb6", "#ffb3d1", "#ffffff", "#ff4d8d"];
+    // =======================
+
+    // Mỗi bảng màu nơ: [sáng, vừa, đậm]
+    const PALETTES = [
+        ["#ffe3ef", "#ffa6cc", "#e0568f"],   // hồng
+        ["#ffffff", "#ffdbe9", "#f0a3c3"],   // trắng hồng
+        ["#ffc2da", "#ff7eb6", "#cf3f7a"],   // hồng đậm
+        ["#fff0f6", "#ffc4dc", "#e889b0"]    // hồng nhạt
+    ];
+
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+    let W, H, dpr;
+    let patternCanvas = null;
+
+    function resize(){
+        dpr = window.devicePixelRatio || 1;
+        W = canvas.clientWidth; H = canvas.clientHeight;
+        canvas.width = W * dpr; canvas.height = H * dpr;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        buildPattern();
+    }
+
+    // ---------- Vẽ 1 chiếc nơ (dùng chung cho nền tĩnh + nơ bay) ----------
+    // g: context để vẽ, size: kích thước, pal: bảng màu [sáng, vừa, đậm]
+    function drawBow(g, x, y, size, rot, pal){
+        g.save();
+        g.translate(x, y);
+        g.rotate(rot);
+        g.scale(size, size);
+        g.lineJoin = "round";
+        g.lineWidth = 0.05;
+        g.strokeStyle = pal[2];
+
+        // hai dải đuôi nơ (có khuyết chữ V ở đầu)
+        for (const d of [-1, 1]){
+            g.beginPath();
+            g.moveTo(d * 0.1, 0.2);
+            g.bezierCurveTo(d * 0.5, 0.9, d * 0.95, 1.5, d * 1.05, 2.15);
+            g.lineTo(d * 0.72, 1.95);
+            g.lineTo(d * 0.5, 2.25);
+            g.bezierCurveTo(d * 0.5, 1.5, d * 0.25, 0.9, d * 0.0, 0.35);
+            g.closePath();
+            g.fillStyle = pal[1];
+            g.fill(); g.stroke();
+        }
+
+        // hai cánh nơ phồng tròn, có đổ bóng chiều sâu
+        for (const d of [-1, 1]){
+            const grad = g.createLinearGradient(0, 0, d * 2.1, 0);
+            grad.addColorStop(0, pal[2]);
+            grad.addColorStop(0.35, pal[1]);
+            grad.addColorStop(1, pal[0]);
+
+            g.beginPath();
+            g.moveTo(d * 0.12, 0);
+            g.bezierCurveTo(d * 0.6, -1.35, d * 2.0, -1.45, d * 2.1, -0.2);
+            g.bezierCurveTo(d * 2.15, 0.9, d * 0.9, 1.35, d * 0.12, 0.1);
+            g.closePath();
+            g.fillStyle = grad;
+            g.fill(); g.stroke();
+
+            // nếp gấp bên trong cánh
+            g.beginPath();
+            g.moveTo(d * 0.3, 0);
+            g.bezierCurveTo(d * 0.7, -0.7, d * 1.4, -0.75, d * 1.55, -0.1);
+            g.bezierCurveTo(d * 1.5, 0.5, d * 0.9, 0.7, d * 0.3, 0.05);
+            g.closePath();
+            g.fillStyle = pal[2];
+            g.globalAlpha *= 0.28;
+            g.fill();
+            g.globalAlpha /= 0.28;
+
+            // vệt sáng bóng
+            g.beginPath();
+            g.ellipse(d * 1.25, -0.72, 0.38, 0.12, d * -0.35, 0, Math.PI * 2);
+            g.fillStyle = "#fff";
+            g.globalAlpha *= 0.55;
+            g.fill();
+            g.globalAlpha /= 0.55;
+        }
+
+        // nút thắt ở giữa
+        g.beginPath();
+        g.ellipse(0, 0.05, 0.42, 0.5, 0, 0, Math.PI * 2);
+        g.fillStyle = pal[1];
+        g.fill(); g.stroke();
+        g.beginPath();
+        g.ellipse(-0.1, -0.12, 0.12, 0.16, -0.5, 0, Math.PI * 2);
+        g.fillStyle = "#fff";
+        g.globalAlpha *= 0.6;
+        g.fill();
+        g.globalAlpha /= 0.6;
+
+        g.restore();
+    }
+
+    function drawStar(g, x, y, r, alpha){
+        g.save();
+        g.globalAlpha = alpha;
+        g.fillStyle = "#fff";
+        g.beginPath();
+        for (let i = 0; i < 8; i++){
+            const ang = i * Math.PI / 4;
+            const rad = i % 2 === 0 ? r : r * 0.28;
+            const px = x + Math.cos(ang) * rad, py = y + Math.sin(ang) * rad;
+            i === 0 ? g.moveTo(px, py) : g.lineTo(px, py);
+        }
+        g.closePath();
+        g.fill();
+        g.restore();
+    }
+
+    // ---------- Nền nơ tĩnh (vẽ 1 lần vào canvas phụ rồi dán lên) ----------
+    function buildPattern(){
+        if (!BOW_PATTERN){ patternCanvas = null; return; }
+        patternCanvas = document.createElement('canvas');
+        patternCanvas.width = W * dpr; patternCanvas.height = H * dpr;
+        const g = patternCanvas.getContext('2d');
+        g.setTransform(dpr, 0, 0, dpr, 0, 0);
+        g.globalAlpha = 0.10;
+
+        const gap = 120, size = 14;
+        let row = 0;
+        for (let y = 40; y < H + gap; y += gap * 0.7){
+            const offset = (row % 2) * gap / 2;
+            for (let x = -gap; x < W + gap; x += gap){
+                const tilt = ((row + Math.floor(x / gap)) % 2 === 0 ? -1 : 1) * 0.22;
+                drawBow(g, x + offset, y, size, tilt, PALETTES[(row + Math.floor(x / gap) + 8) % PALETTES.length]);
+            }
+            row++;
+        }
+    }
+
+    // ---------- Hình trái tim ----------
+    function heartPoint(t){
+        return {
+            x: 16 * Math.pow(Math.sin(t), 3),
+            y: -(13*Math.cos(t) - 5*Math.cos(2*t) - 2*Math.cos(3*t) - Math.cos(4*t))
+        };
+    }
+
+    const points = [];
+    for (let i = 0; i < 2600; i++){
+        const hp = heartPoint(Math.random() * Math.PI * 2);
+        const k = Math.pow(Math.random(), 0.45);
+        points.push({
+            x: hp.x * k, y: hp.y * k,
+            size: Math.random() * 1.6 + 0.6,
+            phase: Math.random() * Math.PI * 2
+        });
+    }
+
+    function beat(time){
+        // hai nhịp "thịch-thịch" rồi nghỉ, giống nhịp tim thật
+        const p = (time * BEAT_SPEED) % (Math.PI * 2);
+        const a = Math.max(0, Math.sin(p * 2));
+        return 1 + 0.12 * a * a;
+    }
+
+    // ---------- Hiệu ứng toả ra ----------
+    const rings = [];
+    const sparks = [];
+    let lastBeatIndex = -1;
+
+    // ---------- Tim nhỏ tủa ra từ tâm ----------
+    const miniHearts = [];
+
+    function emitMiniHearts(time, cx, cy){
+        for (let i = 0; i < MINI_HEARTS; i++){
+            // chia đều các hướng, cộng thêm chút lệch cho tự nhiên
+            const ang = (i / MINI_HEARTS) * Math.PI * 2 + (Math.random() - 0.5) * 0.7;
+            const speed = 110 + Math.random() * 130;
+            miniHearts.push({
+                x: cx, y: cy,
+                vx: Math.cos(ang) * speed,
+                vy: Math.sin(ang) * speed,
+                size: 5 + Math.random() * 7,
+                rot: (Math.random() - 0.5) * 0.8,
+                rotSpeed: (Math.random() - 0.5) * 2.2,
+                born: time,
+                life: 1.5 + Math.random() * 0.9,
+                color: MINI_HEART_COLORS[Math.floor(Math.random() * MINI_HEART_COLORS.length)]
+            });
+        }
+    }
+
+    function drawMiniHeart(x, y, size, rot, color, alpha){
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(rot);
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        for (let t = 0; t <= Math.PI * 2 + 0.1; t += 0.12){
+            const hp = heartPoint(t);
+            const px = hp.x * size / 16, py = hp.y * size / 16;
+            t === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.fill();
+        // chấm sáng nhỏ cho tim bóng bẩy
+        ctx.fillStyle = "#fff";
+        ctx.globalAlpha = alpha * 0.55;
+        ctx.beginPath();
+        ctx.arc(-size * 0.45, -size * 0.35, size * 0.14, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+
+    function drawMiniHearts(time, dt){
+        const drag = Math.pow(0.35, dt);     // chậm dần theo thời gian
+        for (let i = miniHearts.length - 1; i >= 0; i--){
+            const h = miniHearts[i];
+            const age = (time - h.born) / h.life;
+            if (age >= 1){ miniHearts.splice(i, 1); continue; }
+            h.vx *= drag; h.vy *= drag;
+            h.vy -= 22 * dt;                   // hơi bồng bềnh bay lên
+            h.x += h.vx * dt; h.y += h.vy * dt;
+            h.rot += h.rotSpeed * dt;
+            const grow = Math.min(1, 0.3 + age * 4);          // nhú ra từ nhỏ
+            const alpha = 1 - Math.pow(age, 2.2);             // mờ dần ở cuối
+            drawMiniHeart(h.x, h.y, h.size * grow, h.rot, h.color, alpha);
+        }
+        ctx.globalAlpha = 1;
+    }
+
+    function emitBurst(time, cx, cy, s){
+        rings.push({ born: time });
+        for (let i = 0; i < 46; i++){
+            const hp = heartPoint(Math.random() * Math.PI * 2);
+            const len = Math.hypot(hp.x, hp.y) || 1;
+            const speed = 40 + Math.random() * 110;
+            sparks.push({
+                x: cx + hp.x * s, y: cy + hp.y * s,
+                vx: hp.x / len * speed, vy: hp.y / len * speed,
+                born: time, life: 0.9 + Math.random() * 0.9,
+                size: Math.random() * 2.2 + 0.8
+            });
+        }
+    }
+
+    function drawRings(time, cx, cy, base){
+        ctx.strokeStyle = HEART_COLOR;
+        ctx.lineWidth = 2;
+        for (let i = rings.length - 1; i >= 0; i--){
+            const age = (time - rings[i].born) / 1.6;
+            if (age >= 1){ rings.splice(i, 1); continue; }
+            const sc = base * (1 + age * 1.9);
+            ctx.globalAlpha = (1 - age) * 0.55;
+            ctx.beginPath();
+            for (let t = 0; t <= Math.PI * 2 + 0.05; t += 0.05){
+                const hp = heartPoint(t);
+                const x = cx + hp.x * sc, y = cy + hp.y * sc;
+                t === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+    }
+
+    let lastMs = 0;
+    function drawSparks(time, dt){
+        ctx.fillStyle = "#ffd1e3";
+        for (let i = sparks.length - 1; i >= 0; i--){
+            const p = sparks[i];
+            const age = (time - p.born) / p.life;
+            if (age >= 1){ sparks.splice(i, 1); continue; }
+            p.x += p.vx * dt; p.y += p.vy * dt;
+            ctx.globalAlpha = 1 - age;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size * (1 - age * 0.5), 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+    }
+
+    // ---------- Nơ bay lượn ----------
+    const bows = [];
+    function newBow(randomY){
+        return {
+            baseX: Math.random() * W,
+            y: randomY ? Math.random() * H : H + 50,
+            size: 9 + Math.random() * 9,
+            speed: 14 + Math.random() * 26,
+            swayAmp: 18 + Math.random() * 34,
+            swaySpeed: 0.4 + Math.random() * 0.7,
+            phase: Math.random() * Math.PI * 2,
+            rotAmp: 0.2 + Math.random() * 0.3,
+            pal: PALETTES[Math.floor(Math.random() * PALETTES.length)]
+        };
+    }
+
+    function drawBows(time, dt, pulse){
+        if (!BOW_FLOAT) return;
+        while (bows.length < BOW_COUNT) bows.push(newBow(true));
+        for (let i = 0; i < bows.length; i++){
+            const b = bows[i];
+            b.y -= b.speed * dt;
+            if (b.y < -60) bows[i] = newBow(false);
+            const sway = Math.sin(time * b.swaySpeed + b.phase);
+            const x = b.baseX + sway * b.swayAmp;
+            // mờ dần khi bay gần mép trên/dưới cho tự nhiên
+            const edge = Math.min(1, Math.max(0, Math.min(b.y + 30, H + 30 - b.y) / 120));
+            ctx.globalAlpha = 0.9 * edge;
+            drawBow(ctx, x, b.y, b.size * (1 + (pulse - 1) * 0.6), sway * b.rotAmp, b.pal);
+
+            // lấp lánh nhấp nháy quanh nơ
+            const tw = Math.max(0, Math.sin(time * 3 + b.phase * 2));
+            if (tw > 0.2) drawStar(ctx, x + b.size * 1.9, b.y - b.size * 1.4, b.size * 0.45, tw * edge);
+        }
+        ctx.globalAlpha = 1;
+    }
+
+    // ---------- Vòng lặp vẽ ----------
+    function draw(ms){
+        const time = ms / 1000;
+        const dt = Math.min(0.05, (ms - lastMs) / 1000 || 0.016);
+        lastMs = ms;
+        ctx.clearRect(0, 0, W, H);
+
+        const base = Math.min(W, H) / 38;
+        const pulse = beat(time);
+        const s = base * pulse;
+        const cx = W / 2, cy = H / 2 - base;
+
+        if (patternCanvas){
+            ctx.drawImage(patternCanvas, 0, 0, W, H);
+        }
+
+        const beatIndex = Math.floor(time * BEAT_SPEED / Math.PI);
+        if (beatIndex !== lastBeatIndex){
+            lastBeatIndex = beatIndex;
+            emitBurst(time, cx, cy, base);
+            emitMiniHearts(time, cx, cy);
+        }
+
+        const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, s * 22);
+        glow.addColorStop(0, "rgba(255,77,141,0.28)");
+        glow.addColorStop(1, "rgba(255,77,141,0)");
+        ctx.fillStyle = glow;
+        ctx.fillRect(0, 0, W, H);
+
+        drawBows(time, dt, pulse);
+        drawRings(time, cx, cy, base);
+
+        ctx.fillStyle = HEART_COLOR;
+        for (const p of points){
+            const tw = 0.6 + 0.4 * Math.sin(time * 3 + p.phase);
+            ctx.globalAlpha = tw;
+            ctx.beginPath();
+            ctx.arc(cx + p.x * s, cy + p.y * s, p.size, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+
+        drawSparks(time, dt);
+        drawMiniHearts(time, dt);
+
+        ctx.fillStyle = TEXT_COLOR;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.font = `800 ${s * 3.2}px "Baloo 2", "Segoe UI", sans-serif`;
+        ctx.shadowColor = HEART_COLOR;
+        ctx.shadowBlur = 18;
+        ctx.fillText(NAME, cx, cy);
+        ctx.shadowBlur = 0;
+
+        requestAnimationFrame(draw);
+    }
+
+    window.addEventListener('resize', resize);
+    resize();
+    requestAnimationFrame(draw);
+</script>
+</body>
+</html>
