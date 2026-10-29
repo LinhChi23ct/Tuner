@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cày view MV lên 100M</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800&family=Be+Vietnam+Pro:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--red:#e8112d;--hot:#ff3b52;--blush:#ff9aa6;--ink:#050203;--panel:rgba(14,4,6,.78);--text:#fff3f4;--muted:#d9a5ab}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%}
+body{background:var(--ink);color:var(--text);font:400 16px/1.55 "Be Vietnam Pro",system-ui,sans-serif;overflow-x:hidden}
+.layer{position:fixed;inset:0;pointer-events:none;transition:opacity .5s}
+.bg-bows{background-image:var(--bowtile);background-size:150px 150px;opacity:.16}
+.bg-holo{mix-blend-mode:screen;opacity:.9;
+ background:
+  radial-gradient(60% 40% at 50% 0%,rgba(232,17,45,.45),transparent 70%),
+  linear-gradient(115deg,transparent 25%,rgba(255,40,70,.28) 38%,rgba(255,170,140,.22) 46%,rgba(255,0,130,.26) 54%,transparent 68%),
+  repeating-linear-gradient(60deg,rgba(255,70,90,.09) 0 1px,transparent 1px 42px),
+  repeating-linear-gradient(-60deg,rgba(255,70,90,.09) 0 1px,transparent 1px 42px),
+  repeating-linear-gradient(0deg,rgba(255,255,255,.035) 0 1px,transparent 1px 4px);
+ background-size:100% 100%,260% 260%,auto,auto,auto;animation:sheen 10s linear infinite}
+@keyframes sheen{from{background-position:0 0,120% 0,0 0,0 0,0 0}to{background-position:0 0,-60% 0,0 0,0 0,0 0}}
+.float{overflow:hidden;z-index:1}
+.float svg{position:absolute;top:-80px;color:var(--hot);filter:drop-shadow(0 0 8px rgba(255,40,70,.6));animation:fall linear infinite;will-change:transform}
+@keyframes fall{0%{transform:translate3d(0,-10vh,0) rotate(var(--r0))}50%{transform:translate3d(var(--sway),60vh,0) rotate(calc(var(--r0)*-1))}100%{transform:translate3d(0,120vh,0) rotate(var(--r0))}}
+body.no-bg .bg-bows,body.no-bg .bg-holo{opacity:0}
+body.no-bows .float{opacity:0}
+main{position:relative;z-index:2;max-width:760px;margin:0 auto;padding:20px 16px 48px}
+.bar{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;margin-bottom:18px}
+.tog{display:inline-flex;align-items:center;gap:8px;background:var(--panel);border:1px solid rgba(232,17,45,.5);color:var(--text);border-radius:999px;padding:7px 14px 7px 10px;font:inherit;font-size:14px;cursor:pointer}
+.tog i{width:30px;height:18px;border-radius:9px;background:#3a1a1f;position:relative;transition:background .2s}
+.tog i::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;transition:transform .2s}
+.tog[aria-pressed=true] i{background:var(--red)}
+.tog[aria-pressed=true] i::after{transform:translateX(12px)}
+.tog:focus-visible,a.cta:focus-visible{outline:2px solid #fff;outline-offset:2px}
+.card{background:var(--panel);backdrop-filter:blur(6px);border:1px solid rgba(232,17,45,.55);border-radius:22px;padding:22px;box-shadow:0 0 0 1px rgba(255,255,255,.04) inset,0 10px 60px rgba(232,17,45,.22)}
+.head{display:flex;gap:14px;align-items:center}
+.head img{width:112px;aspect-ratio:16/9;object-fit:cover;border-radius:10px;border:1px solid rgba(255,59,82,.6);background:#200a0e}
+.head h1{font:800 clamp(1rem,3.6vw,1.35rem)/1.25 Unbounded,sans-serif;margin:0}
+.head p{margin:4px 0 0;color:var(--muted);font-size:14px}
+.label{margin:26px 0 2px;color:var(--muted);font-size:14px}
+.views{font:800 clamp(2.2rem,10vw,4.4rem)/1.05 Unbounded,sans-serif;letter-spacing:-.02em;text-shadow:0 0 28px rgba(255,59,82,.7);font-variant-numeric:tabular-nums}
+.delta{display:inline-block;margin-top:6px;color:var(--blush);font-size:14px;min-height:21px}
+.bar-wrap{margin:22px 0 6px;height:16px;border-radius:9px;background:#1b0a0d;border:1px solid rgba(255,59,82,.4);overflow:hidden}
+.fill{height:100%;width:0;background:linear-gradient(90deg,#8d0a1b,var(--red),var(--blush));box-shadow:0 0 16px var(--hot);transition:width 1s ease}
+.row{display:flex;justify-content:space-between;color:var(--muted);font-size:14px}
+.need{margin-top:22px;border-top:1px dashed rgba(255,59,82,.4);padding-top:18px}
+.need b{display:block;font:800 clamp(1.7rem,7vw,3rem)/1.1 Unbounded,sans-serif;color:var(--hot);font-variant-numeric:tabular-nums}
+.foot{margin-top:18px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center;color:var(--muted);font-size:13px}
+a.cta{display:inline-block;margin-top:18px;background:var(--red);color:#fff;text-decoration:none;font-weight:600;border-radius:999px;padding:12px 26px;box-shadow:0 0 24px rgba(232,17,45,.6)}
+a.cta:hover{background:var(--hot)}
+.err{color:#ffb3bb;font-size:14px;margin-top:10px;min-height:20px}
+@media (max-width:480px){.head img{width:88px}}
+@media (prefers-reduced-motion:reduce){.bg-holo,.float svg{animation:none}.fill{transition:none}}
+</style>
+</head>
+<body>
+<div class="layer bg-bows" id="bgBows"></div>
+<div class="layer bg-holo"></div>
+<div class="layer float" id="float" aria-hidden="true"></div>
+
+<main>
+  <div class="bar">
+    <button class="tog" id="tBg" aria-pressed="true"><i></i>Nền nơ & hologram</button>
+    <button class="tog" id="tBows" aria-pressed="true"><i></i>Nơ bay</button>
+  </div>
+
+  <section class="card">
+    <div class="head">
+      <img id="thumb" alt="" hidden>
+      <div>
+        <h1 id="title">Đang tải MV…</h1>
+        <p id="channel">Cùng nhau cày view lên mốc 100 triệu</p>
+      </div>
+    </div>
+
+    <p class="label">Lượt xem hiện tại</p>
+    <div class="views" id="views">—</div>
+    <span class="delta" id="delta"></span>
+
+    <div class="bar-wrap"><div class="fill" id="fill"></div></div>
+    <div class="row"><span id="pct">0%</span><span id="goalTxt">Mục tiêu 100.000.000</span></div>
+
+    <div class="need">
+      <span class="label" style="margin:0">Còn thiếu để đạt mục tiêu</span>
+      <b id="need">—</b>
+    </div>
+
+    <div class="foot">
+      <span id="updated">Chưa cập nhật</span>
+      <span id="next"></span>
+    </div>
+    <div class="err" id="err" role="status"></div>
+    <a class="cta" id="watch" target="_blank" rel="noopener">Mở MV trên YouTube và cày thôi</a>
+  </section>
+</main>
+
+<script>
+/* ========== CẤU HÌNH — chỉnh ở đây ========== */
+//AIzaSyCAIhCxR5J7_B8pluyb8_rwun4i9Y0S600
+
+const CONFIG = {
+  VIDEO_ID: "vDfkqjhtiCM",
+  GOAL: 100000000,          // mốc cần đạt
+  REFRESH_SECONDS: 300,      // chu kỳ cập nhật view (giây)
+  API_KEY: "AIzaSyCAIhCxR5J7_B8pluyb8_rwun4i9Y0S600",              // YouTube Data API v3 key (dùng khi KHÔNG có PROXY_URL)
+  PROXY_URL: "https://toeyanl.nlc23ct.workers.dev/",            // (khuyên dùng) URL proxy trả JSON {"viewCount":123,"title":"..","channel":"..","thumb":".."}
+  FLOATING_BOWS: 14         // số nơ bay
+};
+/* ============================================ */
+
+const $ = id => document.getElementById(id);
+const nf = new Intl.NumberFormat("vi-VN");
+const BOW = '<path d="M50 32C31 4 4 8 7 32c-3 24 24 28 43 0Z"/><path d="M50 32c19-28 46-24 43 0 3 24-24 28-43 0Z"/><path d="M47 38 28 68l13-3 9-22Z"/><path d="M53 38l19 30-13-3-9-22Z"/><circle cx="50" cy="32" r="8" fill="#000" fill-opacity=".3"/><path d="M14 30c4-12 16-14 26-4M86 30c-4-12-16-14-26-4" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="2" stroke-linecap="round"/>';
+
+/* nền nơ dạng tile */
+const tile = '<svg xmlns="http://www.w3.org/2000/svg" width="150" height="150" viewBox="0 0 150 150"><g fill="#ff3b52"><g transform="translate(14 18) scale(.5) rotate(-12 50 35)">'+BOW+'</g><g transform="translate(88 88) scale(.5) rotate(14 50 35)">'+BOW+'</g></g></svg>';
+$("bgBows").style.setProperty("--bowtile", 'url("data:image/svg+xml,'+encodeURIComponent(tile)+'")');
+
+/* nơ bay */
+(function(){
+  const box = $("float");
+  for(let i=0;i<CONFIG.FLOATING_BOWS;i++){
+    const s = document.createElementNS("http://www.w3.org/2000/svg","svg");
+    const size = 26 + Math.random()*46;
+    s.setAttribute("viewBox","0 0 100 70");
+    s.setAttribute("width",size); s.setAttribute("height",size*.7);
+    s.innerHTML = BOW;
+    s.style.left = (Math.random()*96)+"%";
+    s.style.animationDuration = (14+Math.random()*16)+"s";
+    s.style.animationDelay = (-Math.random()*28)+"s";
+    s.style.opacity = (.45+Math.random()*.5).toFixed(2);
+    s.style.setProperty("--r0",(Math.random()*50-25).toFixed(0)+"deg");
+    s.style.setProperty("--sway",(Math.random()*120-60).toFixed(0)+"px");
+    if(i%3===0) s.style.color = "#ff9aa6";
+    box.appendChild(s);
+  }
+})();
+
+/* bật/tắt nền & nơ (nhớ lựa chọn nếu trình duyệt cho phép) */
+function setupToggle(btn, cls){
+  const key = "mvcount_"+cls;
+  let on = true;
+  try{ on = localStorage.getItem(key) !== "off"; }catch(e){}
+  const apply = () => { document.body.classList.toggle(cls, !on); btn.setAttribute("aria-pressed", on); };
+  apply();
+  btn.onclick = () => { on = !on; apply(); try{ localStorage.setItem(key, on?"on":"off"); }catch(e){} };
+}
+setupToggle($("tBg"), "no-bg");
+setupToggle($("tBows"), "no-bows");
+
+/* lấy dữ liệu */
+async function fetchStats(){
+  if(CONFIG.PROXY_URL){
+    const r = await fetch(CONFIG.PROXY_URL, {cache:"no-store"});
+    if(!r.ok) throw new Error("Proxy lỗi "+r.status);
+    const d = await r.json();
+    return {views:+d.viewCount, title:d.title, channel:d.channel, thumb:d.thumb};
+  }
+  if(!CONFIG.API_KEY) throw new Error("Chưa cấu hình API_KEY hoặc PROXY_URL trong code.");
+  const u = "https://www.googleapis.com/youtube/v3/videos?part=statistics,snippet&id="+CONFIG.VIDEO_ID+"&key="+CONFIG.API_KEY;
+  const r = await fetch(u, {cache:"no-store"});
+  const d = await r.json();
+  if(!r.ok) throw new Error((d.error && d.error.message) || ("Lỗi "+r.status));
+  const it = d.items && d.items[0];
+  if(!it) throw new Error("Không tìm thấy video.");
+  const th = it.snippet.thumbnails;
+  return {views:+it.statistics.viewCount, title:it.snippet.title, channel:it.snippet.channelTitle, thumb:(th.medium||th.default).url};
+}
+
+/* hiển thị */
+let shown = null, last = null, raf;
+function countTo(target){
+  cancelAnimationFrame(raf);
+  const from = shown === null ? target : shown, t0 = performance.now(), dur = 1200;
+  const step = now => {
+    const p = Math.min(1,(now-t0)/dur), e = 1-Math.pow(1-p,3);
+    shown = Math.round(from + (target-from)*e);
+    $("views").textContent = nf.format(shown);
+    $("need").textContent = shown >= CONFIG.GOAL ? "Đã đạt mục tiêu 🎉" : nf.format(CONFIG.GOAL-shown)+" view";
+    if(p<1) raf = requestAnimationFrame(step);
+  };
+  raf = requestAnimationFrame(step);
+}
+
+async function refresh(){
+  try{
+    const s = await fetchStats();
+    if(s.title) $("title").textContent = s.title;
+    if(s.channel) $("channel").textContent = s.channel;
+    if(s.thumb){ $("thumb").src = s.thumb; $("thumb").hidden = false; }
+    countTo(s.views);
+    const pct = Math.min(100, s.views/CONFIG.GOAL*100);
+    $("fill").style.width = pct+"%";
+    $("pct").textContent = pct.toFixed(2).replace(".",",")+"%";
+    $("goalTxt").textContent = "Mục tiêu "+nf.format(CONFIG.GOAL);
+    if(last !== null){
+      const d = s.views-last;
+      $("delta").textContent = d>0 ? "+"+nf.format(d)+" view so với lần cập nhật trước" : "Chưa có view mới, cày tiếp nào!";
+    }
+    last = s.views;
+    $("updated").textContent = "Cập nhật lúc "+new Date().toLocaleTimeString("vi-VN");
+    $("err").textContent = "";
+  }catch(e){
+    $("err").textContent = "Không lấy được số view: "+e.message;
+  }
+}
+
+$("watch").href = "https://www.youtube.com/watch?v="+CONFIG.VIDEO_ID;
+
+/* vòng lặp cập nhật theo REFRESH_SECONDS */
+let left = 0;
+function tick(){
+  if(document.hidden) return;
+  if(left<=0){ left = CONFIG.REFRESH_SECONDS; refresh(); }
+  else left--;
+  $("next").textContent = "Làm mới sau "+left+"s";
+}
+setInterval(tick,1000); tick();
+document.addEventListener("visibilitychange",()=>{ if(!document.hidden) left = 0; });
+</script>
+</body>
+</html>
