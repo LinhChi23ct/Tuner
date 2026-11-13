@@ -21,7 +21,7 @@
 
     const BOW_PATTERN = false;       //
     const BOW_FLOAT = true;         //
-    const BOW_COUNT = 20;           //
+    const BOW_COUNT = 10;           //
 
     const MINI_HEARTS = 20;          //
     const MINI_HEART_COLORS = ["#ff7eb6", "#ffb3d1", "#ffffff", "#ff4d8d"];
@@ -387,7 +387,7 @@
         ctx.fillStyle = TEXT_COLOR;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.font = `800 ${s * 3.2}px "Baloo 2", "Segoe UI", sans-serif`;
+        ctx.font = `1000 ${s * 3.2}px "Baloo 2", "Segoe UI", sans-serif`;
         ctx.shadowColor = HEART_COLOR;
         ctx.shadowBlur = 18;
         ctx.fillText(NAME, cx, cy);
